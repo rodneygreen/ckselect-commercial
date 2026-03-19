@@ -349,26 +349,33 @@ h1{animation:fu .5s .08s ease both}
       </div>
       <div class="cform">
         <div class="frow">
-          <div class="fg"><label>First Name</label><input type="text" placeholder="John" autocomplete="given-name"></div>
-          <div class="fg"><label>Last Name</label><input type="text" placeholder="Smith" autocomplete="family-name"></div>
+          <div class="fg"><label>First Name</label><input id="ck_first" type="text" placeholder="First Name" autocomplete="given-name"></div>
+          <div class="fg"><label>Last Name</label><input id="ck_last" type="text" placeholder="Last Name" autocomplete="family-name"></div>
         </div>
         <div class="frow">
-          <div class="fg"><label>Email</label><input type="email" placeholder="john@company.com" autocomplete="email"></div>
-          <div class="fg"><label>Phone</label><input type="tel" placeholder="(000) 000-0000" autocomplete="tel"></div>
+          <div class="fg"><label>Email</label><input id="ck_email" type="email" placeholder="john@company.com" autocomplete="email"></div>
+          <div class="fg"><label>Phone</label><input id="ck_phone" type="tel" placeholder="(000) 000-0000" autocomplete="tel"></div>
         </div>
         <div class="fg">
           <label>Inquiry Type</label>
-          <select>
-            <option>Select an option...</option>
-            <option>Buying Commercial Property</option>
-            <option>Selling Commercial Property</option>
-            <option>Leasing Space</option>
-            <option>Investment Opportunity</option>
-            <option>General Inquiry</option>
+          <select id="ck_intent">
+            <option value="">Select an option...</option>
+            <option value="Buying Commercial Property">Buying Commercial Property</option>
+            <option value="Selling Commercial Property">Selling Commercial Property</option>
+            <option value="Leasing Space">Leasing Space</option>
+            <option value="Investment Opportunity">Investment Opportunity</option>
+            <option value="General Inquiry">General Inquiry</option>
           </select>
         </div>
-        <div class="fg"><label>Message</label><textarea placeholder="Tell us about your commercial real estate needs..."></textarea></div>
-        <button class="fsub" onclick="subForm(this)">Send Inquiry →</button>
+        <div class="fg"><label>Message</label><textarea id="ck_message" placeholder="Tell us about your commercial real estate needs..."></textarea></div>
+        <button class="fsub" id="ckSubmitBtn" onclick="subForm(this)">Send Inquiry →</button>
+        <div id="ckSuccess" style="display:none;margin-top:16px;padding:16px;background:rgba(61,155,255,0.12);border:1px solid rgba(61,155,255,0.35);border-radius:2px;color:#3d9bff;font-size:13px;line-height:1.6;">
+          <strong style="display:block;font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;">Message Received</strong>
+          Our team will be in touch within 24 hours.
+        </div>
+        <div id="ckError" style="display:none;margin-top:16px;padding:14px;background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.3);border-radius:2px;color:rgba(255,160,160,0.9);font-size:13px;">
+          Please fill in your name, email, and phone before submitting.
+        </div>
       </div>
     </div>
   </div>
@@ -387,7 +394,7 @@ h1{animation:fu .5s .08s ease both}
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbzBc0AXHdEea-ILeU4by6YKTmwchzqN0tKBDNAngqs9WofpqFqCPht5c7UzWHfvMtJQ/exec';
 const LISTINGS_URL=SCRIPT_URL+'?sheet=Listings';
 const TEAM_URL=SCRIPT_URL+'?sheet=Team';
@@ -638,6 +645,30 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLModal();close
 document.addEventListener('DOMContentLoaded',()=>{
   Promise.all([loadListings(), loadTeam()]);
 });
+
+async function subForm(btn){
+  var first=document.getElementById('ck_first').value.trim();
+  var last=document.getElementById('ck_last').value.trim();
+  var email=document.getElementById('ck_email').value.trim();
+  var phone=document.getElementById('ck_phone').value.trim();
+  var intent=document.getElementById('ck_intent').value;
+  var message=document.getElementById('ck_message').value.trim();
+  document.getElementById('ckError').style.display='none';
+  if(!first||!email||!phone){document.getElementById('ckError').style.display='block';return;}
+  btn.textContent='Sending...';btn.disabled=true;
+  try{
+    await fetch('https://formsubmit.co/ajax/kirk@ckselectrealestate.com',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({name:first+' '+last,email:email,phone:phone,inquiry:intent||'Not specified',message:message||'None provided',_subject:'NEW LEAD FROM CKSELECTCRE WEBSITE — '+first+' '+last,_replyto:email})
+    });
+    document.getElementById('ckSuccess').style.display='block';
+    btn.style.display='none';
+  }catch(e){
+    btn.textContent='Send Inquiry →';btn.disabled=false;
+    alert('There was an issue submitting. Please contact us directly.');
+  }
+}
 </script>
 
 <!-- LISTING MODAL -->
