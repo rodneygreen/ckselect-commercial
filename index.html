@@ -7,7 +7,9 @@
 <title>CK Select Commercial Real Estate</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="dns-prefetch" href="https://script.google.com">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@300;400;500&display=swap&font-display=swap" rel="stylesheet">
 <style>
 :root{--dp:#0a1628;--md:#0d2247;--br:#1a6bde;--bb:#3d9bff;--wh:#fff;--gm:#9aafc9;--gl:#e8edf5}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -399,6 +401,34 @@ const SCRIPT_URL='https://script.google.com/macros/s/AKfycbzBc0AXHdEea-ILeU4by6Y
 const LISTINGS_URL=SCRIPT_URL+'?sheet=Listings';
 const TEAM_URL=SCRIPT_URL+'?sheet=Team';
 
+// Register inline service worker for network-level caching of Apps Script responses
+if('serviceWorker' in navigator){
+  const swCode=`
+const CACHE='ckselect-v1';
+const SCRIPT_ORIGIN='https://script.google.com';
+self.addEventListener('install',e=>self.skipWaiting());
+self.addEventListener('activate',e=>e.waitUntil(
+  caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+));
+self.addEventListener('fetch',e=>{
+  const url=e.request.url;
+  if(!url.includes('script.google.com'))return;
+  e.respondWith(
+    caches.open(CACHE).then(async cache=>{
+      const cached=await cache.match(e.request);
+      const fetchPromise=fetch(e.request).then(r=>{
+        if(r.ok)cache.put(e.request,r.clone());
+        return r;
+      }).catch(()=>null);
+      return cached||fetchPromise;
+    })
+  );
+});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swURL=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swURL,{scope:'/'}).catch(()=>{});
+}
+
 function toggleMenu(){document.getElementById('burger').classList.toggle('open');document.getElementById('mobileMenu').classList.toggle('open')}
 function closeMenu(){document.getElementById('burger').classList.remove('open');document.getElementById('mobileMenu').classList.remove('open')}
 document.addEventListener('click',e=>{if(!e.target.closest('nav')&&!e.target.closest('#mobileMenu'))closeMenu()});
@@ -424,22 +454,31 @@ let allL=[];
 const icons={office:'🏢',retail:'🏪',industrial:'🏭',investment:'💼',land:'🌿',medical:'🏥'};
 
 async function fetchJSON(url){
-  const cacheKey='cksc_'+url.slice(-30);
-  const cached=sessionStorage.getItem(cacheKey);
-  if(cached){
-    // return cache instantly, refresh in background silently
-    setTimeout(async()=>{
-      try{
-        const r=await fetch(url);
-        if(r.ok){const d=await r.json();sessionStorage.setItem(cacheKey,JSON.stringify(d));}
-      }catch(e){}
-    },100);
-    return JSON.parse(cached);
-  }
+  const cacheKey='cksc2_'+url.slice(-30);
+  const TTL=10*60*1000; // 10 minutes
+  try{
+    const raw=localStorage.getItem(cacheKey);
+    if(raw){
+      const {ts,data}=JSON.parse(raw);
+      if(Date.now()-ts<TTL){
+        // serve cache instantly, silently refresh in background
+        setTimeout(async()=>{
+          try{
+            const r=await fetch(url);
+            if(r.ok){
+              const d=await r.json();
+              localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),data:d}));
+            }
+          }catch(e){}
+        },200);
+        return data;
+      }
+    }
+  }catch(e){}
   const r=await fetch(url);
   if(!r.ok) throw new Error('Server error: '+r.status);
   const data=await r.json();
-  try{sessionStorage.setItem(cacheKey,JSON.stringify(data));}catch(e){}
+  try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),data:data}));}catch(e){}
   return data;
 }
 
